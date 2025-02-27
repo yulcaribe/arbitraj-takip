@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arbitraj Takip</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin: 50px; }
+        table { width: 90%; margin: auto; border-collapse: collapse; }
+        th, td { border: 1px solid black; padding: 10px; text-align: center; }
+        #errorMessage { color: red; }
+        .lowest { background-color: red; color: white; }
+        .highest { background-color: green; color: white; }
+        .percentage-high { background-color: yellow; font-weight: bold; }
+        .percentage-extreme { background-color: orange; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Arbitraj Takip Uygulaması</h1>
+    <button id="updateButton" onclick="fetchPrices()">Fiyatları Güncelle</button>
+    <p id="errorMessage"></p>
+    <table>
+        <thead>
+            <tr>
+                <th>Coin</th>
+                <th>Midas</th>
+                <th>Binance</th>
+                <th>KuCoin</th>
+                <th>Bybit</th>
+                <th>OKX</th>
+                <th>Gate.io</th>
+                <th>% Fark</th> <!-- YENİ SÜTUN -->
+            </tr>
+        </thead>
+        <tbody id="priceTable"></tbody>
+    </table>
+
+    <script>
+        async function fetchPrices() {
+            const button = document.getElementById("updateButton");
+            const errorMessage = document.getElementById("errorMessage");
+            const priceTable = document.getElementById("priceTable");
+
+            button.disabled = true;
+            button.innerText = "Güncelleniyor...";
+            errorMessage.innerText = "";
+            priceTable.innerHTML = "";
+
+            try {
+                const response = await fetch("/prices");
+                if (!response.ok) throw new Error("API'den geçerli bir yanıt alınamadı.");
+                const data = await response.json();
+
+                data.exchanges.forEach(entry => {
+                    let prices = {
+                        Midas: entry.Midas || "Veri yok",
+                        Binance: entry.Binance || "Veri yok",
+                        KuCoin: entry.KuCoin || "Veri yok",
+                        Bybit: entry.Bybit || "Veri yok",
+                        OKX: entry.OKX || "Veri yok",
+                        Gateio: entry.Gateio || "Veri yok"
+                    };
+
+                    // Geçerli olan fiyatları sayıya çeviriyoruz (Virgüllü formatı düzeltiyoruz)
+                    let numericPrices = {};
+                    Object.keys(prices).forEach(exchange => {
+                        let cleanPrice = prices[exchange].replace(",", "."); // Virgülü noktaya çevir
+                        let priceValue = parseFloat(cleanPrice);
+                        if (!isNaN(priceValue)) numericPrices[exchange] = priceValue;
+                    });
+
+                    // En düşük ve en yüksek fiyatları buluyoruz
+                    let minExchange = Object.keys(numericPrices).reduce((a, b) => numericPrices[a] < numericPrices[b] ? a : b);
+                    let maxExchange = Object.keys(numericPrices).reduce((a, b) => numericPrices[a] > numericPrices[b] ? a : b);
+                    let minPrice = numericPrices[minExchange];
+                    let maxPrice = numericPrices[maxExchange];
+
+                    // Yüzdelik farkı hesaplıyoruz
+                    let percentageDiff = ((maxPrice - minPrice) / minPrice) * 100;
+                    let percentageCell = `<td>${percentageDiff.toFixed(2)}%</td>`; // Varsayılan görünüm
+
+                    // Büyük farklar için renklendirme
+                    if (percentageDiff > 2) percentageCell = `<td class="percentage-high">${percentageDiff.toFixed(2)}%</td>`;
+                    if (percentageDiff > 5) percentageCell = `<td class="percentage-extreme">${percentageDiff.toFixed(2)}%</td>`;
+
+                    // Satır içeriğini oluşturuyoruz
+                    let row = `<tr>
+                        <td>${entry.coin}</td>
+                        ${Object.keys(prices).map(exchange => {
+                            let price = prices[exchange];
+                            if (exchange === minExchange) return `<td class="lowest">${price}</td>`; // En düşük kırmızı
+                            if (exchange === maxExchange) return `<td class="highest">${price}</td>`; // En yüksek yeşil
+                            return `<td>${price}</td>`; // Diğerleri normal
+                        }).join("")}
+                        ${percentageCell} <!-- Yüzdelik fark sütunu -->
+                    </tr>`;
+
+                    priceTable.innerHTML += row;
+                });
+
+            } catch (error) {
+                errorMessage.innerText = "Veri çekme hatası: " + error.message;
+                console.error("Veri çekme hatası:", error);
+            } finally {
+                button.disabled = false;
+                button.innerText = "Fiyatları Güncelle";
+            }
+        }
+
+        window.onload = fetchPrices;
+    </script>
+</body>
+</html>
