@@ -13,7 +13,7 @@ const app = express();
 app.use(cors());
 app.use(express.static("public"));
 
-const PORT = 3001;
+const PORT = 3000;
 
 app.get("/prices", async (req, res) => {
     try {
