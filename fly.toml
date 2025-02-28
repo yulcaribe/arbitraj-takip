@@ -1,10 +1,10 @@
-# fly.toml app configuration file generated for arbitraj-takip on 2025-02-28T09:56:53Z
+# fly.toml app configuration file generated for arbitraj-takip on 2025-02-28T10:24:06Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
 app = 'arbitraj-takip'
-primary_region = 'ams'
+primary_region = 'iad'
 
 [build]
 
