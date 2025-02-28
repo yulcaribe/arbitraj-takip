@@ -5,14 +5,45 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Arbitraj Takip</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin: 50px; }
-        table { width: 90%; margin: auto; border-collapse: collapse; }
-        th, td { border: 1px solid black; padding: 10px; text-align: center; }
+        body { 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            margin: 50px; 
+        }
+        table { 
+            width: 90%; 
+            margin: auto; 
+            border-collapse: collapse; 
+            position: relative; /* Sticky için gerekli */
+        }
+        th, td { 
+            border: 1px solid black; 
+            padding: 10px; 
+            text-align: center; 
+        }
+        thead {
+            position: sticky;
+            top: 0;
+            background-color: white;
+            z-index: 10; /* Üstte kalmasını sağlıyor */
+        }
         #errorMessage { color: red; }
         .lowest { background-color: red; color: white; }
         .highest { background-color: green; color: white; }
         .percentage-high { background-color: yellow; font-weight: bold; }
         .percentage-extreme { background-color: orange; font-weight: bold; }
+        .no-data { background-color: #f0f0f0; color: #999; }
+        .sort-btn {
+            margin-left: 10px;
+            padding: 5px 10px;
+            background-color: #008CBA;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .sort-btn:hover {
+            background-color: #005f75;
+        }
     </style>
 </head>
 <body>
@@ -29,13 +60,19 @@
                 <th>Bybit</th>
                 <th>OKX</th>
                 <th>Gate.io</th>
-                <th>% Fark</th> <!-- YENİ SÜTUN -->
+                <th>
+                    % Fark
+                    <button id="sortButton" class="sort-btn">Sıralama</button>
+                </th>
             </tr>
         </thead>
         <tbody id="priceTable"></tbody>
     </table>
 
     <script>
+        let isDescending = true;
+        let rows = [];
+
         async function fetchPrices() {
             const button = document.getElementById("updateButton");
             const errorMessage = document.getElementById("errorMessage");
@@ -51,7 +88,7 @@
                 if (!response.ok) throw new Error("API'den geçerli bir yanıt alınamadı.");
                 const data = await response.json();
 
-                data.exchanges.forEach(entry => {
+                rows = data.exchanges.map(entry => {
                     let prices = {
                         Midas: entry.Midas || "Veri yok",
                         Binance: entry.Binance || "Veri yok",
@@ -61,42 +98,35 @@
                         Gateio: entry.Gateio || "Veri yok"
                     };
 
-                    // Geçerli olan fiyatları sayıya çeviriyoruz (Virgüllü formatı düzeltiyoruz)
                     let numericPrices = {};
                     Object.keys(prices).forEach(exchange => {
-                        let cleanPrice = prices[exchange].replace(",", "."); // Virgülü noktaya çevir
+                        let cleanPrice = prices[exchange].replace(",", ".");
                         let priceValue = parseFloat(cleanPrice);
                         if (!isNaN(priceValue)) numericPrices[exchange] = priceValue;
                     });
 
-                    // En düşük ve en yüksek fiyatları buluyoruz
-                    let minExchange = Object.keys(numericPrices).reduce((a, b) => numericPrices[a] < numericPrices[b] ? a : b);
-                    let maxExchange = Object.keys(numericPrices).reduce((a, b) => numericPrices[a] > numericPrices[b] ? a : b);
+                    let minExchange = Object.keys(numericPrices).reduce((a, b) => numericPrices[a] < numericPrices[b] ? a : b, "");
+                    let maxExchange = Object.keys(numericPrices).reduce((a, b) => numericPrices[a] > numericPrices[b] ? a : b, "");
                     let minPrice = numericPrices[minExchange];
                     let maxPrice = numericPrices[maxExchange];
 
-                    // Yüzdelik farkı hesaplıyoruz
                     let percentageDiff = ((maxPrice - minPrice) / minPrice) * 100;
-                    let percentageCell = `<td>${percentageDiff.toFixed(2)}%</td>`; // Varsayılan görünüm
+                    let percentageCell = `<td>${percentageDiff.toFixed(2)}%</td>`; 
 
-                    // Büyük farklar için renklendirme
                     if (percentageDiff > 2) percentageCell = `<td class="percentage-high">${percentageDiff.toFixed(2)}%</td>`;
                     if (percentageDiff > 5) percentageCell = `<td class="percentage-extreme">${percentageDiff.toFixed(2)}%</td>`;
 
-                    // Satır içeriğini oluşturuyoruz
-                    let row = `<tr>
-                        <td>${entry.coin}</td>
-                        ${Object.keys(prices).map(exchange => {
-                            let price = prices[exchange];
-                            if (exchange === minExchange) return `<td class="lowest">${price}</td>`; // En düşük kırmızı
-                            if (exchange === maxExchange) return `<td class="highest">${price}</td>`; // En yüksek yeşil
-                            return `<td>${price}</td>`; // Diğerleri normal
-                        }).join("")}
-                        ${percentageCell} <!-- Yüzdelik fark sütunu -->
-                    </tr>`;
-
-                    priceTable.innerHTML += row;
+                    return {
+                        coin: entry.coin,
+                        prices: prices,
+                        percentageDiff: percentageDiff.toFixed(2),
+                        percentageCell: percentageCell,
+                        minExchange: minExchange,
+                        maxExchange: maxExchange
+                    };
                 });
+
+                updateTable();
 
             } catch (error) {
                 errorMessage.innerText = "Veri çekme hatası: " + error.message;
@@ -106,6 +136,32 @@
                 button.innerText = "Fiyatları Güncelle";
             }
         }
+
+        function updateTable() {
+            const priceTable = document.getElementById("priceTable");
+            priceTable.innerHTML = "";
+
+            rows.forEach(entry => {
+                let row = `<tr>
+                    <td>${entry.coin}</td>
+                    ${Object.keys(entry.prices).map(exchange => {
+                        let price = entry.prices[exchange];
+                        if (price === "Veri yok") return `<td class="no-data">${price}</td>`;
+                        if (exchange === entry.minExchange) return `<td class="lowest">${price}</td>`;
+                        if (exchange === entry.maxExchange) return `<td class="highest">${price}</td>`;
+                        return `<td>${price}</td>`;
+                    }).join("")}
+                    ${entry.percentageCell}
+                </tr>`;
+                priceTable.innerHTML += row;
+            });
+        }
+
+        document.getElementById("sortButton").onclick = () => {
+            isDescending = !isDescending;
+            rows.sort((a, b) => isDescending ? b.percentageDiff - a.percentageDiff : a.percentageDiff - b.percentageDiff);
+            updateTable();
+        };
 
         window.onload = fetchPrices;
     </script>

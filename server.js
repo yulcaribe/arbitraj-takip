@@ -17,32 +17,35 @@ const PORT = 3000;
 
 app.get("/prices", async (req, res) => {
     try {
-        // Borsalardan fiyatları paralel olarak alıyoruz
-        const [midasPrices, binancePrices, kuCoinPrices, bybitPrices, okxPrices, gateioPrices] = await Promise.all([
+        // Binance'tan fiyatları alıyoruz
+        const binancePrices = await fetchBinancePrices();
+        
+        // Diğer borsalardan fiyatları paralel olarak alıyoruz
+        const [midasPrices, kuCoinPrices, bybitPrices, okxPrices, gateioPrices] = await Promise.all([
             fetchMidasPrices(),
-            fetchBinancePrices(),
             fetchKuCoinPrices(),
             fetchBybitPrices(),
             fetchOKXPrices(),
             fetchGateioPrices()
         ]);
 
-        // Tüm sonuçları işleyelim
-        let allResults = midasPrices.map(entry => {
-            let binanceSymbol = `${entry.coin}USDT`;
-            let gateioSymbol = `${entry.coin}USDT`;
-            let okxSymbol = `${entry.coin}USDT`;
-            let bybitSymbol = `${entry.coin}USDT`;
-            let kucoinSymbol = `${entry.coin}USDT`;
+        // Binance coin'leri ile tüm verileri birleştiriyoruz
+        let allResults = Object.keys(binancePrices).map(coin => {
+            // Diğer borsalardan fiyatları alıyoruz
+            const midasPrice = midasPrices.find(item => item.coin === coin)?.price || "Veri yok";
+            const kucoinPrice = kuCoinPrices[`${coin}USDT`] || "Veri yok";
+            const bybitPrice = bybitPrices[`${coin}USDT`] || "Veri yok";
+            const okxPrice = okxPrices[`${coin}USDT`] || "Veri yok";
+            const gateioPrice = gateioPrices[`${coin}USDT`] || "Veri yok";
 
             return {
-                coin: entry.coin,
-                Midas: entry.price,
-                Binance: binancePrices[binanceSymbol] || "Veri yok",
-                KuCoin: kuCoinPrices[kucoinSymbol] || "Veri yok",
-                Bybit: bybitPrices[bybitSymbol] || "Veri yok",
-                OKX: okxPrices[okxSymbol] || "Veri yok",
-                Gateio: gateioPrices[gateioSymbol] || "Veri yok"
+                coin: coin,
+                Midas: midasPrice,
+                Binance: binancePrices[coin] || "Veri yok",
+                KuCoin: kucoinPrice,
+                Bybit: bybitPrice,
+                OKX: okxPrice,
+                Gateio: gateioPrice
             };
         });
 
