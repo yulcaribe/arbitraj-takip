@@ -7,6 +7,7 @@ app = 'arbitraj-takip'
 primary_region = 'arn'
 
 [build]
+  command = "node server.js"
 
 [http_service]
   internal_port = 3000
