@@ -2,7 +2,6 @@ const express = require("express");
 const cors = require("cors");
 
 // Borsa servisleri (Midas, Binance, KuCoin, Bybit, OKX, Gate.io)
-const { fetchMidasPrices } = require("./services/midasService");
 const { fetchBinancePrices } = require("./services/binanceService");
 const { fetchKuCoinPrices } = require("./services/kuCoinService");
 const { fetchBybitPrices } = require("./services/bybitService");
@@ -21,8 +20,7 @@ app.get("/prices", async (req, res) => {
         const binancePrices = await fetchBinancePrices();
         
         // Diğer borsalardan fiyatları paralel olarak alıyoruz
-        const [midasPrices, kuCoinPrices, bybitPrices, okxPrices, gateioPrices] = await Promise.all([
-            fetchMidasPrices(),
+        const [kuCoinPrices, bybitPrices, okxPrices, gateioPrices] = await Promise.all([
             fetchKuCoinPrices(),
             fetchBybitPrices(),
             fetchOKXPrices(),
@@ -32,7 +30,6 @@ app.get("/prices", async (req, res) => {
         // Binance coin'leri ile tüm verileri birleştiriyoruz
         let allResults = Object.keys(binancePrices).map(coin => {
             // Diğer borsalardan fiyatları alıyoruz
-            const midasPrice = midasPrices.find(item => item.coin === coin)?.price || "Veri yok";
             const kucoinPrice = kuCoinPrices[`${coin}USDT`] || "Veri yok";
             const bybitPrice = bybitPrices[`${coin}USDT`] || "Veri yok";
             const okxPrice = okxPrices[`${coin}USDT`] || "Veri yok";
@@ -40,7 +37,6 @@ app.get("/prices", async (req, res) => {
 
             return {
                 coin: coin,
-                Midas: midasPrice,
                 Binance: binancePrices[coin] || "Veri yok",
                 KuCoin: kucoinPrice,
                 Bybit: bybitPrice,
